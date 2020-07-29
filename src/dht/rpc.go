@@ -51,7 +51,7 @@ func (s *Server) Shutdown() {
 	fmt.Println(s.node.address , ": shutdown successfully.")
 }
 
-func (s *Server) CallFunc(client *rpc.Client, method string, args interface{}, reply interface{}) error {
+func CallFunc(client *rpc.Client, method string, args interface{}, reply interface{}) error {
 	select {
 	case call := <- client.Go(method, args, reply, make(chan *rpc.Call)).Done :
 		return call.Error
@@ -60,7 +60,7 @@ func (s *Server) CallFunc(client *rpc.Client, method string, args interface{}, r
 	}
 }
 
-func (s *Server) CallFuncByAddress(address string, method string, args interface{}, reply interface{}) error {
+func CallFuncByAddress(address string, method string, args interface{}, reply interface{}) error {
 	if address == "" {
 		return InvalidAddressError
 	}
@@ -72,12 +72,39 @@ func (s *Server) CallFuncByAddress(address string, method string, args interface
 		dialError <- err
 	}()
 	select {
-		case err := <- dialError :
-			if err != nil {
+	case err := <- dialError :
+		if err != nil {
 				return err
 			}
-		case <- time.After(500 * time.Millisecond) :
-			return TimeOutError
+	case <- time.After(500 * time.Millisecond) :
+		return TimeOutError
 	}
-	return s.CallFunc(client, method, args, reply)
+	return CallFunc(client, method, args, reply)
+}
+
+func CheckValidRPC(address string) bool {
+	if address == "" {
+		return false
+	}
+	dialError := make(chan error)
+	fmt.Printf("Try to connect to %s.", address)
+	for trial := 0 ; trial < 3 ; trial ++ {
+		go func() {
+			var err error
+			_, err = rpc.Dial("tcp", address)
+			dialError <- err
+		}()
+		select {
+		case err := <-dialError:
+			if err == nil {
+				return true
+			} else {
+				log.Println(err)
+			}
+		case <- time.After(400 * time.Millisecond):
+			log.Println(TimeOutError)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
 }

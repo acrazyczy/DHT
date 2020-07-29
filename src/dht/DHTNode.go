@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"time"
-}
+)
 
 type DHTNode struct {
 	node *ChordNode
@@ -57,10 +57,10 @@ func (this *DHTNode) Put(key string, value string) bool {
 		fmt.Printf("%s not listening.\n", this.node.address)
 		return false
 	}
-	this.node.Put(key, value)
+	this.node.PutOnChord(key, value)
 	go func() {
 		time.Sleep(300 * time.Millisecond)
-		this.node.Put(key, value)
+		this.node.PutOnChord(key, value)
 	}()
 	return true
 }
@@ -71,8 +71,8 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		return false, ""
 	}
 	for trial := 0 ; trial < 5; trial ++ {
-		value := this.node.Get(key)
-		if value != "" {
+		ok, value := this.node.GetOnChord(key)
+		if ok {
 			return true, value
 		}
 	}
@@ -85,6 +85,6 @@ func (this *DHTNode) Delete(key string) bool {
 		fmt.Printf("%s not listening.\n", this.node.address)
 		return false
 	}
-	_, ok := this.node.Delete(key)
+	ok, _ := this.node.DeleteOnChord(key)
 	return ok
 }
