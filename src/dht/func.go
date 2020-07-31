@@ -33,7 +33,7 @@ func between(start, elt, end *big.Int, inclusive bool) bool {
 	}
 }
 
-func getLocalAddress() string {
+func GetLocalAddress() string {
 	var localaddress string
 
 	ifaces, err := net.Interfaces()

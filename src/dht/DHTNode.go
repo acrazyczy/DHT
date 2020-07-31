@@ -18,7 +18,10 @@ func (this *DHTNode) SetPort(port int) {
 
 func (this *DHTNode) Run() {
 	this.server = NewServer(this.node)
-	this.server.Launch()
+	if err := this.server.Launch() ; err != nil {
+		fmt.Printf("Cannot run node at %s.\n", this.node.address)
+		return
+	}
 	this.node.Maintain()
 	fmt.Printf("Successfully run %s.\n", this.node.address)
 }
@@ -28,6 +31,7 @@ func (this *DHTNode) Create() {
 }
 
 func (this *DHTNode) Join(addr string) {
+	time.Sleep(500 * time.Millisecond)
 	if err := this.node.Join(addr) ; err != nil {
 		time.Sleep(500 * time.Millisecond)
 		err = this.node.Join(addr)
@@ -35,11 +39,17 @@ func (this *DHTNode) Join(addr string) {
 			panic(err)
 		}
 	}
+	time.Sleep(500 * time.Millisecond)
 	fmt.Printf("Successfully join %s.\n", this.node.address)
 }
 
 func (this *DHTNode) Quit() {
+	if this.node.listening == false {
+		fmt.Printf("%s not listening.\n", this.node.address)
+		return
+	}
 	this.node.Quit()
+	this.server.Shutdown()
 	fmt.Printf("Successfully quit %s.\n", this.node.address)
 }
 
@@ -70,7 +80,7 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		fmt.Printf("%s not listening.\n", this.node.address)
 		return false, ""
 	}
-	for trial := 0 ; trial < 5; trial ++ {
+	for trial := 0 ; trial < 5 ; trial ++ {
 		ok, value := this.node.GetOnChord(key)
 		if ok {
 			return true, value
@@ -87,4 +97,12 @@ func (this *DHTNode) Delete(key string) bool {
 	}
 	ok, _ := this.node.DeleteOnChord(key)
 	return ok
+}
+
+func (this *DHTNode) Dump() {
+	if this.node.listening == false {
+		fmt.Printf("%s not listening.\n", this.node.address)
+		return
+	}
+	this.node.Dump()
 }

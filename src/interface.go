@@ -31,4 +31,7 @@ type dhtNode interface {
 	Get(key string) (bool, string)     /* Return "true" and the value if success, "false" otherwise. */
 	Delete(key string) bool            /* Remove the key-value pair represented by KEY from the network. */
 	/* Return "true" if remove successfully, "false" otherwise. */
+
+	// you can delete this function if you don't want to write.
+	Dump()
 }
