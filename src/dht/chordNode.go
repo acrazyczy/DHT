@@ -58,7 +58,7 @@ func (this *ChordNode) Join(addr string) error {
 }
 
 func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error {
-	//fmt.Printf("Try to findsuccessor at %s.\n", this.address)
+	//fmt.Printf("Try to find successor at %s.\n", this.address)
 	if between(hashString(this.address), hashValue, hashString(this.successor), true) {
 		*succaddr = this.successor
 		return nil
@@ -67,13 +67,16 @@ func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error
 }
 
 func (this *ChordNode) Quit() {
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(800 * time.Millisecond)
 	this.MergeToSuccessor()
 	this.QuitNotify()
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(800 * time.Millisecond)
 }
 
 func (this *ChordNode) MergeToSuccessor() {
+	if this.successor == this.address {
+		return
+	}
 	this.dataLock.Lock()
 	var reply int = 0
 	err := CallFuncByAddress(this.successor, "RPCWrapper.ReceiveData", this.data, &reply)
@@ -98,12 +101,14 @@ func (this *ChordNode) QuitNotify() {
 }
 
 func (this *ChordNode) QuitNotifyByPredecessor(addr string, _ *int) error {
+	//log.Printf("While quiting, change the predecessor of %s from %s to %s.\n", this.address, this.predecessor, addr)
 	this.predecessor = addr
 	return nil
 }
 
 func (this *ChordNode) QuitNotifyBySuccessor(addr string, _ *int) error {
 	this.succLock.Lock()
+	//log.Printf("While quiting, change the successor of %s from %s to %s.\n", this.address, this.successor, addr)
 	this.successor = addr
 	this.succLock.Unlock()
 	return nil
@@ -190,6 +195,7 @@ func (this *ChordNode) Delete(key string, value *string) error {
 
 func (this *ChordNode) Stabilize() {
 	this.succLock.Lock()
+	defer this.succLock.Unlock()
 	client, err := GetClient(this.successor)
 	if client == nil {
 		return
@@ -201,18 +207,18 @@ func (this *ChordNode) Stabilize() {
 	}
 	if err_ == nil {
 		if addr != "" && between(hashString(this.address), hashString(addr), hashString(this.successor), false) {
+			//log.Printf("Change the successor of %s from %s to %s.\n", this.address, this.successor, addr)
 			this.successor = addr
 			client, err = GetClient(this.successor)
 		}
 	} else {
 		log.Println(err_)
 	}
-	this.succLock.Unlock()
 	if err == nil {
 		var ok bool
 		err_ = CallFunc(client, "RPCWrapper.Notify", this.address, &ok)
 		if ok {
-			log.Printf("Notify %s at %s.\n", this.address, this.successor)
+			//log.Printf("Notify %s at %s.\n", this.address, this.successor)
 		}
 		if err_ != nil {
 			log.Println(err_)
@@ -235,7 +241,9 @@ func (this *ChordNode) GetPredecessor(_ int, addr *string) error {
 }
 
 func (this *ChordNode) CheckPredecessor() {
+	//log.Printf("Check predecessor of %s.\n", this.address)
 	if this.predecessor != "" && !CheckValidRPC(this.predecessor) {
+		//log.Printf("Predecessor %s lost at %s.\n", this.predecessor, this.address)
 		this.predecessor = ""
 	}
 }

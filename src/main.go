@@ -7,7 +7,7 @@ import (
 )
 
 func NaiveTest() {
-	const NodeCount int = 3
+	const NodeCount int = 20
 	const PortStart int = 14025
 	var network [NodeCount] dhtNode
 	var ports [NodeCount] int
@@ -24,7 +24,7 @@ func NaiveTest() {
 		network[i].Dump()
 		network[0].Dump()*/
 	}
-	const DataCount int = 5
+	const DataCount int = 200
 	var data [DataCount] dht.KVPair
 	for i := 0 ; i < DataCount ; i ++ {
 		data[i] = dht.KVPair{Key: strconv.Itoa(i), Value: strconv.Itoa(i * i)}
@@ -49,6 +49,9 @@ func NaiveTest() {
 		}
 	}
 	fmt.Printf("Success: %d, Mistake: %d, Failure: %d.\n\n", SuccessCount, MistakeCount, FailureCount)
+	/*for i := 0 ; i < NodeCount ; i ++ {
+		network[i].Dump()
+	}*/
 	for i := 0 ; i < NodeCount ; i ++ {
 		network[i].Dump()
 		network[i].Quit()

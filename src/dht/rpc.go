@@ -60,7 +60,7 @@ func CallFunc(client *rpc.Client, method string, args interface{}, reply interfa
 	select {
 	case call := <- client.Go(method, args, reply, make(chan *rpc.Call, 1)).Done :
 		return call.Error
-	case <- time.After(500 * time.Millisecond) :
+	case <- time.After(time.Second) :
 		return TimeOutError
 	}
 }
@@ -74,6 +74,11 @@ func GetClient(address string) (client *rpc.Client, err error) {
 	go func() {
 		var err error
 		client, err = rpc.Dial("tcp", address)
+		defer func() {
+			if r := recover(); r != nil {
+				log.Println(r)
+			}
+		}()
 		dialError <- err
 	}()
 	select {
@@ -102,24 +107,31 @@ func CheckValidRPC(address string) bool {
 	dialError := make(chan error)
 	defer close(dialError)
 	//fmt.Printf("Try to connect to %s.\n", address)
-	for trial := 0 ; trial < 3 ; trial ++ {
+	for trial := 0 ; trial < 2 ; trial ++ {
 		go func() {
 			var err error
 			_, err = rpc.Dial("tcp", address)
+			defer func() {
+				if r := recover(); r != nil {
+					log.Println(r)
+				}
+			}()
 			dialError <- err
 		}()
 		select {
-		case err := <-dialError:
+		case err := <- dialError:
 			if err == nil {
+				//fmt.Printf("Connect trial to %s succeed.\n", address)
 				return true
 			} else {
 				log.Println(err)
 			}
-		case <- time.After(400 * time.Millisecond):
+		case <- time.After(100 * time.Millisecond):
 			log.Println(TimeOutError)
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
+	//fmt.Printf("Connection trial to %s fail.\n", address)
 	return false
 }
 

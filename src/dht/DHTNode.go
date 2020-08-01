@@ -39,7 +39,7 @@ func (this *DHTNode) Join(addr string) {
 			panic(err)
 		}
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(800 * time.Millisecond)
 	fmt.Printf("Successfully join %s.\n", this.node.address)
 }
 
@@ -48,8 +48,8 @@ func (this *DHTNode) Quit() {
 		fmt.Printf("%s not listening.\n", this.node.address)
 		return
 	}
-	this.node.Quit()
 	this.server.Shutdown()
+	this.node.Quit()
 	fmt.Printf("Successfully quit %s.\n", this.node.address)
 }
 
@@ -85,6 +85,7 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		if ok {
 			return true, value
 		}
+		time.Sleep(300 * time.Millisecond)
 	}
 	log.Printf("Value of %s not found.\n", key)
 	return false, ""
