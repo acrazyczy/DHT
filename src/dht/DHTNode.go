@@ -30,32 +30,28 @@ func (this *DHTNode) Create() {
 	this.node.Create()
 }
 
-func (this *DHTNode) Join(addr string) {
-	time.Sleep(500 * time.Millisecond)
+func (this *DHTNode) Join(addr string) bool {
+	time.Sleep(600 * time.Millisecond)
 	if err := this.node.Join(addr) ; err != nil {
 		time.Sleep(500 * time.Millisecond)
 		err = this.node.Join(addr)
 		if err != nil {
-			panic(err)
+			return false
 		}
 	}
-	time.Sleep(800 * time.Millisecond)
+	time.Sleep(3 * time.Second)
 	fmt.Printf("Successfully join %s.\n", this.node.address)
+	return true
 }
 
 func (this *DHTNode) Quit() {
-	if this.node.listening == false {
-		fmt.Printf("%s not listening.\n", this.node.address)
-		return
-	}
-	this.server.Shutdown()
-	this.node.Quit()
-	fmt.Printf("Successfully quit %s.\n", this.node.address)
+	this.ForceQuit()
 }
 
 func (this *DHTNode) ForceQuit() {
 	this.server.Shutdown()
-	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("Force quit at node %s.\n", this.node.address)
+	time.Sleep(900 * time.Millisecond)
 }
 
 func (this *DHTNode) Ping(addr string) bool {

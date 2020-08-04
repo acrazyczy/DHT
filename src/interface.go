@@ -7,7 +7,7 @@ type dhtNode interface {
 	/* "Create" and "Join" are called after calling "Run". */
 	/* For a dhtNode, either "Create" or "Join" will be called, but not both. */
 	Create()          /* Create a new network. */
-	Join(addr string) /* Join an existing network. */
+	Join(addr string) bool /* Join an existing network. */
 
 	/* Quit from the network it is currently in.*/
 	/* "Quit" will not be called before "Create" or "Join". */

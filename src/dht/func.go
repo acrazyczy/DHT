@@ -18,8 +18,8 @@ var hashMod = new(big.Int).Exp(big.NewInt(2), big.NewInt(keySize), nil)
 
 func jump(address string, fingerentry int) *big.Int {
 	n := hashString(address)
-	fingerentryminus1 := big.NewInt(int64(fingerentry) - 1)
-	jump := new(big.Int).Exp(two, fingerentryminus1, nil)
+	Fingerentry := big.NewInt(int64(fingerentry))
+	jump := new(big.Int).Exp(two, Fingerentry, nil)
 	sum := new(big.Int).Add(n, jump)
 
 	return new(big.Int).Mod(sum, hashMod)

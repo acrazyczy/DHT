@@ -1,21 +1,16 @@
 package dht
 
 import (
+	"errors"
 	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"net/rpc"
 	"time"
-	"errors"
 )
 
 var TimeOutError error = errors.New("time out")
 var InvalidAddressError error = errors.New("invalid address")
-
-type RPCWrapper struct {
-	node *ChordNode
-}
 
 type Server struct {
 	server *rpc.Server
@@ -71,25 +66,29 @@ func GetClient(address string) (client *rpc.Client, err error) {
 	}
 	dialError := make(chan error)
 	defer close(dialError)
-	go func() {
-		var err error
-		client, err = rpc.Dial("tcp", address)
-		defer func() {
-			if r := recover(); r != nil {
-				log.Println(r)
-			}
+	for trial := 0 ; trial < 2 ; trial ++ {
+		go func() {
+			var err error
+			client, err = rpc.Dial("tcp", address)
+			defer func() {
+				if r := recover(); r != nil {
+					log.Println(r)
+				}
+			}()
+			dialError <- err
 		}()
-		dialError <- err
-	}()
-	select {
-	case err := <- dialError :
-		if err != nil {
-			return nil, err
+		select {
+		case err := <- dialError:
+			if err != nil {
+				return nil, err
+			} else {
+				return client, nil
+			}
+		case <- time.After(500 * time.Millisecond):
+			log.Println(TimeOutError)
 		}
-	case <- time.After(500 * time.Millisecond) :
-		return nil, TimeOutError
 	}
-	return client, err
+	return nil, TimeOutError
 }
 
 func CallFuncByAddress(address string, method string, args interface{}, reply interface{}) error {
@@ -133,40 +132,4 @@ func CheckValidRPC(address string) bool {
 	}
 	//fmt.Printf("Connection trial to %s fail.\n", address)
 	return false
-}
-
-func (this *RPCWrapper) FindSuccessor(hashValue *big.Int, succaddr *string) error {
-	return this.node.FindSuccessor(hashValue, succaddr)
-}
-
-func (this *RPCWrapper) ReceiveData(data map[string] string, count *int) error {
-	return this.node.ReceiveData(data, count)
-}
-
-func (this *RPCWrapper) Put(kv KVPair, ok *bool) error {
-	return this.node.Put(kv, ok)
-}
-
-func (this *RPCWrapper) Get(key string, value *string) error {
-	return this.node.Get(key, value)
-}
-
-func (this *RPCWrapper) Delete(key string, value *string) error {
-	return this.node.Delete(key, value)
-}
-
-func (this *RPCWrapper) GetPredecessor(_ int, addr *string) error {
-	return this.node.GetPredecessor(0, addr)
-}
-
-func (this *RPCWrapper) Notify(addr string, ok *bool) error {
-	return this.node.Notify(addr, ok)
-}
-
-func (this *RPCWrapper) QuitNotifyByPredecessor(addr string, _ *int) error {
-	return this.node.QuitNotifyByPredecessor(addr, nil)
-}
-
-func (this *RPCWrapper) QuitNotifyBySuccessor(addr string, _ *int) error {
-	return this.node.QuitNotifyBySuccessor(addr, nil)
 }

@@ -1,71 +1,96 @@
 package main
 
 import (
-	"dht"
-	"fmt"
-	"strconv"
+	"flag"
+	"math/rand"
+	"os"
+	"time"
 )
 
-func NaiveTest() {
-	const NodeCount int = 20
-	const PortStart int = 14025
-	var network [NodeCount] dhtNode
-	var ports [NodeCount] int
-	for i := 0 ; i < NodeCount ; i ++ {
-		ports[i], network[i] = PortStart + i, NewNode(PortStart + i)
-		network[i].Run()
+var (
+	help     bool
+	testName string
+)
+
+func init() {
+	flag.BoolVar(&help, "help", false, "help")
+	flag.StringVar(&testName, "test", "", "which test(s) do you want to run: basic/advance/all")
+
+	flag.Usage = usage
+	//flag.Parse()
+	testName = "basic"
+
+	if help || (testName != "basic" && testName != "advance" && testName != "all") {
+		flag.Usage()
+		os.Exit(0)
 	}
-	fmt.Println("Successfully run the whole network.")
-	localIP := dht.GetLocalAddress()
-	network[0].Create()
-	for i := 1 ; i < NodeCount ; i ++ {
-		network[i].Join(localIP + ":" + strconv.Itoa(ports[0]))
-		/*time.Sleep(time.Second)
-		network[i].Dump()
-		network[0].Dump()*/
-	}
-	const DataCount int = 200
-	var data [DataCount] dht.KVPair
-	for i := 0 ; i < DataCount ; i ++ {
-		data[i] = dht.KVPair{Key: strconv.Itoa(i), Value: strconv.Itoa(i * i)}
-		network[i % NodeCount].Put(data[i].Key, data[i].Value)
-	}
-	var (
-		SuccessCount int = 0
-		MistakeCount int = 0
-		FailureCount int = 0
-	)
-	for i := DataCount - 1 ; i >= 0 ; i -- {
-		ok, value := network[(i * i) % NodeCount].Get(data[i].Key)
-		if !ok {
-			fmt.Printf("Data {key: %s, value: %s} not found.\n", data[i].Key, data[i].Value)
-			FailureCount ++
-		} else if value != data[i].Value {
-			fmt.Printf("Data {key: %s, value: %s} is replaced by data {key: %s, value: %s}.\n", data[i].Key, data[i].Value, data[i].Key, value)
-			MistakeCount ++
-		} else {
-			fmt.Printf("Data {key: %s, value: %s} found.\n", data[i].Key, value)
-			SuccessCount ++
-		}
-	}
-	fmt.Printf("Success: %d, Mistake: %d, Failure: %d.\n\n", SuccessCount, MistakeCount, FailureCount)
-	/*for i := 0 ; i < NodeCount ; i ++ {
-		network[i].Dump()
-	}*/
-	for i := 0 ; i < NodeCount ; i ++ {
-		network[i].Dump()
-		network[i].Quit()
-		fmt.Println()
-	}
+
+	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
-	/*file, err := os.OpenFile("DHT.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer file.Close()
-	log.SetOutput(file)*/
+	_, _ = yellow.Println("Welcome to DHT-2020 Test Program!\n")
 
-	NaiveTest()
+	var basicFailRate float64
+	//var advanceFailRate float64
+
+	switch testName {
+	case "all":
+		fallthrough
+	case "basic":
+		_, _ = yellow.Println("Basic Test Begins:")
+		basicFailedCnt, basicTotalCnt := basicTest()
+		basicFailRate = float64(basicFailedCnt) / float64(basicTotalCnt)
+		if basicFailRate > basicTestMaxFailRate {
+			_, _ = red.Printf("Basic test failed with fail rate %.4f\n", basicFailRate)
+		} else {
+			_, _ = green.Printf("Basic test passed with fail rate %.4f\n", basicFailRate)
+		}
+
+		if testName == "basic" {
+			break
+		}
+		fallthrough
+	case "advance":
+		_, _ = cyan.Println("Advance Test Begins:")
+		_, _ = red.Println("To be added...")
+	}
+	/*
+		switch 1 {
+		case 1:
+			blue.Println("Start Advanced Tests")
+			if advancedTest(); basicTestMaxFailRate > failrate() {
+				green.Println("Passed Advanced Tests with", failrate())
+			} else {
+				red.Println("Failed Advanced Tests")
+				// os.Exit(0)
+			}
+
+			totalCnt = 0
+			totalFail = 0
+			blue.Println("Start Force Quit Tests")
+			if testForceQuit(2); basicTestMaxFailRate > failrate()/50 {
+				green.Println("Passed Force Quit with", failrate())
+			} else {
+				red.Println("Failed Advanced Tests")
+				os.Exit(0)
+			}
+			finalScore += failrate()
+		default:
+			red.Print("Select error, ask -h for help")
+			os.Exit(0)
+		}
+
+		green.Printf("\nNot necessary, but tell finall score: %.2f\n", 1-finalScore)
+	*/
+	_, _ = cyan.Println("\nFinal print:")
+	if basicFailRate > basicTestMaxFailRate {
+		_, _ = red.Printf("Basic test failed with fail rate %.4f\n", basicFailRate)
+	} else {
+		_, _ = green.Printf("Basic test passed with fail rate %.4f\n", basicFailRate)
+	}
+}
+
+func usage() {
+	flag.PrintDefaults()
 }
