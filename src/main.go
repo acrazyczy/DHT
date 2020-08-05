@@ -2,8 +2,11 @@ package main
 
 import (
 	"flag"
+	log "github.com/sirupsen/logrus"
+	easy_formatter "github.com/t-tomalak/logrus-easy-formatter"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -28,7 +31,19 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func main() {
+func main_() {
+	log.SetFormatter(&easy_formatter.Formatter{
+		TimestampFormat: "2006-01-02 15:04:05.000",
+		LogFormat:       "[%lvl%]: %time% - %msg%\n",
+	})
+	log.SetLevel(log.InfoLevel)
+	file, err := os.OpenFile("log/log_"+strings.ReplaceAll(time.Now().Format(time.Stamp)," ","-")+".log", os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	log.SetOutput(file)
+
 	_, _ = yellow.Println("Welcome to DHT-2020 Test Program!\n")
 
 	var basicFailRate float64

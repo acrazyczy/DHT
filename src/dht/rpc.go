@@ -2,8 +2,7 @@ package dht
 
 import (
 	"errors"
-	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net"
 	"net/rpc"
 	"time"
@@ -25,13 +24,13 @@ func NewServer(nd *ChordNode) *Server {
 func (s *Server) Launch() error {
 	s.server = rpc.NewServer()
 	if err := s.server.Register(s.node) ; err != nil {
-		fmt.Println("Register fail: ", err)
+		log.Errorln("Register fail: ", err)
 		return err
 	}
 
 	lsn, err := net.Listen("tcp", s.node.node.address)
 	if err != nil {
-		fmt.Println("Listen fail: ", err)
+		log.Errorln("Listen fail: ", err)
 		return err
 	}
 
@@ -45,10 +44,10 @@ func (s *Server) Launch() error {
 func (s *Server) Shutdown() {
 	s.node.node.listening = false
 	if err := s.listener.Close() ; err != nil {
-		log.Println(err)
+		log.Errorln(err)
 		return
 	}
-	fmt.Println(s.node.node.address , ": shutdown successfully.")
+	log.Traceln(s.node.node.address , ": shutdown successfully.")
 }
 
 func CallFunc(client *rpc.Client, method string, args interface{}, reply interface{}) error {
@@ -72,7 +71,7 @@ func GetClient(address string) (client *rpc.Client, err error) {
 			client, err = rpc.Dial("tcp", address)
 			defer func() {
 				if r := recover(); r != nil {
-					log.Println(r)
+					log.Errorln(r)
 				}
 			}()
 			dialError <- err
@@ -85,7 +84,7 @@ func GetClient(address string) (client *rpc.Client, err error) {
 				return client, nil
 			}
 		case <- time.After(500 * time.Millisecond):
-			log.Println(TimeOutError)
+			log.Errorln(TimeOutError)
 		}
 	}
 	return nil, TimeOutError
@@ -105,14 +104,13 @@ func CheckValidRPC(address string) bool {
 	}
 	dialError := make(chan error)
 	defer close(dialError)
-	//fmt.Printf("Try to connect to %s.\n", address)
 	for trial := 0 ; trial < 2 ; trial ++ {
 		go func() {
 			var err error
 			_, err = rpc.Dial("tcp", address)
 			defer func() {
 				if r := recover(); r != nil {
-					log.Println(r)
+					log.Errorln(r)
 				}
 			}()
 			dialError <- err
@@ -120,16 +118,15 @@ func CheckValidRPC(address string) bool {
 		select {
 		case err := <- dialError:
 			if err == nil {
-				//fmt.Printf("Connect trial to %s succeed.\n", address)
 				return true
 			} else {
-				log.Println(err)
+				log.Errorln(err)
 			}
 		case <- time.After(100 * time.Millisecond):
-			log.Println(TimeOutError)
+			log.Errorln(TimeOutError)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	//fmt.Printf("Connection trial to %s fail.\n", address)
+	log.Warningf("Connection trial to %s fail.\n", address)
 	return false
 }

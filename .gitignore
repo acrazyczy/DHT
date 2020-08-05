@@ -1,2 +1,4 @@
 .idea/
 reference/
+pkg/
+log/

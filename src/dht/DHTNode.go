@@ -1,8 +1,7 @@
 package dht
 
 import (
-	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -19,11 +18,12 @@ func (this *DHTNode) SetPort(port int) {
 func (this *DHTNode) Run() {
 	this.server = NewServer(this.node)
 	if err := this.server.Launch() ; err != nil {
-		fmt.Printf("Cannot run node at %s.\n", this.node.address)
+		log.Errorf("Cannot run node at %s.\n", this.node.address)
 		return
 	}
 	this.node.Maintain()
-	fmt.Printf("Successfully run %s.\n", this.node.address)
+	time.Sleep(maintainPeriod)
+	log.Tracef("Successfully run %s.\n", this.node.address)
 }
 
 func (this *DHTNode) Create() {
@@ -31,16 +31,15 @@ func (this *DHTNode) Create() {
 }
 
 func (this *DHTNode) Join(addr string) bool {
-	time.Sleep(600 * time.Millisecond)
+	time.Sleep(halfMaintainPeriod)
 	if err := this.node.Join(addr) ; err != nil {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(maintainPeriod)
 		err = this.node.Join(addr)
 		if err != nil {
 			return false
 		}
 	}
-	time.Sleep(3 * time.Second)
-	fmt.Printf("Successfully join %s.\n", this.node.address)
+	time.Sleep(maintainPeriod)
 	return true
 }
 
@@ -50,8 +49,8 @@ func (this *DHTNode) Quit() {
 
 func (this *DHTNode) ForceQuit() {
 	this.server.Shutdown()
-	fmt.Printf("Force quit at node %s.\n", this.node.address)
-	time.Sleep(900 * time.Millisecond)
+	log.Tracef("Force quit at node %s.\n", this.node.address)
+	time.Sleep(maintainPeriod * 4)
 }
 
 func (this *DHTNode) Ping(addr string) bool {
@@ -60,7 +59,7 @@ func (this *DHTNode) Ping(addr string) bool {
 
 func (this *DHTNode) Put(key string, value string) bool {
 	if this.node.listening == false {
-		fmt.Printf("%s not listening.\n", this.node.address)
+		log.Errorf("%s not listening.\n", this.node.address)
 		return false
 	}
 	this.node.PutOnChord(key, value)
@@ -73,7 +72,7 @@ func (this *DHTNode) Put(key string, value string) bool {
 
 func (this *DHTNode) Get(key string) (bool, string) {
 	if this.node.listening == false {
-		fmt.Printf("%s not listening.\n", this.node.address)
+		log.Errorf("%s not listening.\n", this.node.address)
 		return false, ""
 	}
 	for trial := 0 ; trial < 5 ; trial ++ {
@@ -83,13 +82,13 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
-	log.Printf("Value of %s not found.\n", key)
+	log.Warningf("Value of %s not found.\n", key)
 	return false, ""
 }
 
 func (this *DHTNode) Delete(key string) bool {
 	if this.node.listening == false {
-		fmt.Printf("%s not listening.\n", this.node.address)
+		log.Errorf("%s not listening.\n", this.node.address)
 		return false
 	}
 	ok, _ := this.node.DeleteOnChord(key)
@@ -98,7 +97,7 @@ func (this *DHTNode) Delete(key string) bool {
 
 func (this *DHTNode) Dump() {
 	if this.node.listening == false {
-		fmt.Printf("%s not listening.\n", this.node.address)
+		log.Errorf("%s not listening.\n", this.node.address)
 		return
 	}
 	this.node.Dump()
