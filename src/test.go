@@ -23,7 +23,7 @@ func NaiveTest() {
 	}
 	defer file.Close()
 	log.SetOutput(file)
-	const NodeCount int = 5
+	const NodeCount int = 10
 	const PortStart int = 14025
 	var network [NodeCount] dhtNode
 	var ports [NodeCount] int
@@ -35,17 +35,16 @@ func NaiveTest() {
 	localIP := dht.GetLocalAddress()
 	network[0].Create()
 	for i := 1 ; i < NodeCount ; i ++ {
-		network[i].Join(localIP + ":" + strconv.Itoa(ports[0]))
-		/*time.Sleep(time.Second)
-		network[i].Dump()
-		network[0].Dump()*/
+		if !network[i].Join(localIP + ":" + strconv.Itoa(ports[0])) {
+			log.Panicf("Fail to join %d.\n", ports[i])
+		}
 	}
 	for i := 0 ; i < NodeCount ; i ++ {
 		network[i].Dump()
 	}
 	//time.Sleep(5 * time.Second)
 	log.Traceln("Put & get test begins.")
-	const DataCount int = 10
+	const DataCount int = 100
 	var data [DataCount] dht.KVPair
 	for i := 0 ; i < DataCount ; i ++ {
 		data[i] = dht.KVPair{Key: strconv.Itoa(i), Value: strconv.Itoa(i * i)}
@@ -78,7 +77,7 @@ func NaiveTest() {
 	}
 }
 
-func main() {
+func main_() {
 	/*file, err := os.OpenFile("DHT.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)

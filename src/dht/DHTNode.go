@@ -33,6 +33,7 @@ func (this *DHTNode) Create() {
 func (this *DHTNode) Join(addr string) bool {
 	time.Sleep(halfMaintainPeriod)
 	if err := this.node.Join(addr) ; err != nil {
+		log.Errorln("First join attempt error.", err)
 		time.Sleep(maintainPeriod)
 		err = this.node.Join(addr)
 		if err != nil {

@@ -71,7 +71,7 @@ func GetClient(address string) (client *rpc.Client, err error) {
 			client, err = rpc.Dial("tcp", address)
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorln(r)
+					log.Errorln("GetClient: ", r)
 				}
 			}()
 			dialError <- err
@@ -84,7 +84,7 @@ func GetClient(address string) (client *rpc.Client, err error) {
 				return client, nil
 			}
 		case <- time.After(500 * time.Millisecond):
-			log.Errorln(TimeOutError)
+			log.Errorln("GetClient: ", TimeOutError)
 		}
 	}
 	return nil, TimeOutError
