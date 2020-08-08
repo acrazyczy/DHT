@@ -31,7 +31,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func main() {
+func main_() {
 	log.SetFormatter(&easy_formatter.Formatter{
 		TimestampFormat: "2006-01-02 15:04:05.000",
 		LogFormat:       "[%lvl%]: %time% - %msg%\n",

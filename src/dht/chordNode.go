@@ -105,13 +105,6 @@ func (this *ChordNode) Join(addr string) error {
 
 	log.Tracef("Get successor list of %s.\n", this.address)
 
-	/*this.backupLock.Lock()
-	err = CallFunc(client, "RPCWrapper.ReceiveAndDeleteBackup", 0, &this.backup)
-	this.backupLock.Unlock()
-	if err != nil {
-		return err
-	}*/
-
 	this.dataLock.Lock()
 	err = CallFunc(client, "RPCWrapper.SplitIntoPredecessor", hashValue, &this.data)
 	this.dataLock.Unlock()
@@ -137,24 +130,19 @@ func (this *ChordNode) GetSuccessor(_ int, reply *[successorLen] string) error {
 	return nil
 }
 
-/*func (this *ChordNode) ReceiveAndDeleteBackup(_ int, backup *map[string] string) error {
-	this.backupLock.Lock()
-	*backup = this.backup
-	this.backup = make(map[string] string)
-	this.backupLock.Unlock()
-	return nil
-}*/
-
 func (this *ChordNode) SplitIntoPredecessor(hashValue *big.Int, reply *map[string] string) error {
 	this.dataLock.Lock()
 	for key, value := range this.data {
-		if between(hashValue, hashString(key), hashString(this.address), true) {
+		if !between(hashValue, hashString(key), hashString(this.address), true) {
 			(*reply)[key] = value
 			delete(this.data, key)
 		}
 	}
-	err := CallFuncByAddress(this.successor[0], "RPCWrapper.RemoveFromBackup", *reply, nil)
 	this.dataLock.Unlock()
+	this.backupLock.Lock()
+	this.backup = *reply
+	this.backupLock.Unlock()
+	err := CallFuncByAddress(this.successor[0], "RPCWrapper.RemoveFromBackup", *reply, nil)
 	return err
 }
 
@@ -168,7 +156,7 @@ func (this *ChordNode) RemoveFromBackup(backup map[string] string, _ *int) error
 }
 
 func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error {
-	//log.Tracef("FindSuccessor at %s.\n", this.address)
+	log.Tracef("FindSuccessor at %s.\n", this.address)
 	if suc := this.FirstValidSuccessor() ; between(hashString(this.address), hashValue, hashString(suc), true) {
 		*succaddr = suc
 		return nil
@@ -178,7 +166,7 @@ func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error
 }
 
 func (this *ChordNode) ClosestPrecedingNode(hashValue *big.Int) *rpc.Client {
-	/*start := hashString(this.address)
+	start := hashString(this.address)
 	for i := fingerLen - 1 ; i >= 0 ; i -- {
 		if this.finger[i] == "" || !between(start, hashString(this.finger[i]), hashValue, false) {
 			continue
@@ -188,7 +176,7 @@ func (this *ChordNode) ClosestPrecedingNode(hashValue *big.Int) *rpc.Client {
 			continue
 		}
 		return client
-	}*/
+	}
 	client, _ := GetClient(this.FirstValidSuccessor())
 	return client
 }
@@ -201,76 +189,6 @@ func (this *ChordNode) FirstValidSuccessor() string {
 	}
 	return ""
 }
-
-/*func (this *ChordNode) Quit() {
-	time.Sleep(800 * time.Millisecond)
-	this.MergeToSuccessor()
-	this.QuitNotify()
-	time.Sleep(800 * time.Millisecond)
-}
-
-func (this *ChordNode) MergeToSuccessor() {
-	suc := this.FirstValidSuccessor()
-	if suc == this.address {
-		return
-	}
-	this.dataLock.Lock()
-	err := CallFuncByAddress(suc, "RPCWrapper.SendData", this.data, nil)
-	if err != nil {
-		log.Println(err)
-	}
-	this.dataLock.Unlock()
-	this.backupLock.Lock()
-	err = CallFuncByAddress(suc, "RPCWrapper.ReplaceBackup", this.backup, nil)
-	if err != nil {
-		log.Println(err)
-	}
-	this.backupLock.Unlock()
-}
-
-func (this *ChordNode) QuitNotify() {
-	suc := this.FirstValidSuccessor()
-	if suc == this.address {
-		return
-	}
-
-	if err := CallFuncByAddress(suc, "RPCWrapper.QuitNotifyByPredecessor", this.predecessor, nil) ; err != nil {
-		log.Println(err)
-	}
-	if err := CallFuncByAddress(this.predecessor, "RPCWrapper.QuitNotifyBySuccessor", this.successor, nil) ; err != nil {
-		log.Println(err)
-	}
-}
-
-func (this *ChordNode) QuitNotifyByPredecessor(addr string, _ *int) error {
-	//log.Printf("While quiting, change the predecessor of %s from %s to %s.\n", this.address, this.predecessor, addr)
-	this.predecessor = addr
-	return nil
-}
-
-func (this *ChordNode) QuitNotifyBySuccessor(addr string, _ *int) error {
-	this.succLock.Lock()
-	//log.Printf("While quiting, change the successor of %s from %s to %s.\n", this.address, this.successor, addr)
-	this.successor[0] = addr
-	this.succLock.Unlock()
-	return nil
-}
-
-func (this *ChordNode) SendData(data map[string] string, _ *int) error {
-	this.dataLock.Lock()
-	for key, value := range data {
-		this.data[key] = value
-	}
-	err := CallFuncByAddress(this.successor[0], "RPCWrapper.SendBackup", data, nil)
-	this.dataLock.Unlock()
-	return err
-}
-
-func (this *ChordNode) ReplaceBackup(backup map[string] string, _ *int) error {
-	this.backupLock.Lock()
-	this.backup = backup
-	this.backupLock.Unlock()
-}*/
 
 func (this *ChordNode) SendBackup(backup map[string] string, _ *int) error {
 	this.backupLock.Lock()
@@ -316,7 +234,9 @@ func (this *ChordNode) PutOnBackup(kv KVPair, _ *int) error {
 
 func (this *ChordNode) GetOnChord(key string) (bool, string) {
 	var addr string
+	log.Tracef("Start to find the corresponding position of key %s.\n", key)
 	err := this.FindSuccessor(hashString(key), &addr)
+	log.Tracef("Try to get key %s on chord node %s.\n", key, addr)
 	if err != nil {
 		return false, ""
 	}
@@ -426,8 +346,8 @@ func (this *ChordNode) Stabilize() {
 func (this *ChordNode) Notify(addr string, _ *int) error {
 	if this.predecessor == "" || addr != this.address && between(hashString(this.predecessor), hashString(addr), hashString(this.address), false) {
 		log.Tracef("The predecessor of node %s has been changed from %s to %s.\n", this.address, this.predecessor, addr)
-		log.Traceln(this.predecessor, addr, this.address)
-		log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))
+		/*log.Traceln(this.predecessor, addr, this.address)
+		log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))*/
 		this.predecessor = addr
 		err := CallFuncByAddress(addr, "RPCWrapper.ReceiveData", 0, &this.backup)
 		if err != nil {
@@ -435,10 +355,10 @@ func (this *ChordNode) Notify(addr string, _ *int) error {
 		}
 	} else {
 		log.Tracef("Notify failed.\n")
-		if this.predecessor != " " {
+		/*if this.predecessor != " " {
 			log.Traceln(this.predecessor, addr, this.address)
 			log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))
-		}
+		}*/
 	}
 	return nil
 }
@@ -469,6 +389,7 @@ func (this *ChordNode) EnableBackup() {
 	for key, value := range this.backup {
 		this.data[key] = value
 	}
+	this.dataLock.Unlock()
 	client, err := GetClient(this.FirstValidSuccessor())
 	defer client.Close()
 	if err == nil {
@@ -479,7 +400,6 @@ func (this *ChordNode) EnableBackup() {
 	}
 	this.backup = make(map[string] string)
 	this.backupLock.Unlock()
-	this.dataLock.Unlock()
 }
 
 func (this *ChordNode) FixFingers() {
@@ -490,13 +410,27 @@ func (this *ChordNode) FixFingers() {
 	this.next = (this.next + 1) % fingerLen
 }
 
+func (this *ChordNode) Clear() {
+	this.dataLock.Lock()
+	this.data = make(map[string] string)
+	this.dataLock.Unlock()
+	this.backupLock.Lock()
+	this.backup = make(map[string] string)
+	this.backupLock.Unlock()
+}
+
 func (this *ChordNode) Dump() {
 	fmt.Printf("Dumping node at %s.\n", this.address)
 	fmt.Printf("Predecessor: %s\n", this.predecessor)
 	fmt.Printf("Successor: %s\n", this.successor)
-	/*fmt.Print("Data: {")
+	fmt.Print("Data: {")
 	for key, value := range this.data {
 		fmt.Printf("{%s: %s}, ", key, value)
 	}
-	fmt.Printf("}\n")*/
+	fmt.Printf("}\n")
+	fmt.Print("Backup: {")
+	for key, value := range this.backup {
+		fmt.Printf("{%s: %s}, ", key, value)
+	}
+	fmt.Printf("}\n")
 }

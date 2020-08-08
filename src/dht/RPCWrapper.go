@@ -14,18 +14,6 @@ func (this *RPCWrapper) GetSuccessor(_ int, list *[successorLen] string) error {
 	return this.node.GetSuccessor(0, list)
 }
 
-/*func (this *RPCWrapper) ReceiveAndDeleteBackup(_ int, backup *map[string] string) error {
-	return this.node.ReceiveAndDeleteBackup(0, backup)
-}
-
-func (this *RPCWrapper) SendData(data map[string] string, _ *int) error {
-	return this.node.SendData(data, nil)
-}
-
-func (this *RPCWrapper) ReplaceBackup(backup map[string] string, _ *int) error {
-	return this.node.ReplaceBackup(backup, nil)
-}*/
-
 func (this *RPCWrapper) SendBackup(backup map[string] string, _ *int) error {
 	return this.node.SendBackup(backup, nil)
 }
@@ -69,11 +57,3 @@ func (this *RPCWrapper) GetPredecessor(_ int, addr *string) error {
 func (this *RPCWrapper) Notify(addr string, _ *int) error {
 	return this.node.Notify(addr, nil)
 }
-
-/*func (this *RPCWrapper) QuitNotifyByPredecessor(addr string, _ *int) error {
-	return this.node.QuitNotifyByPredecessor(addr, nil)
-}
-
-func (this *RPCWrapper) QuitNotifyBySuccessor(addr string, _ *int) error {
-	return this.node.QuitNotifyBySuccessor(addr, nil)
-}*/

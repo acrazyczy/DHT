@@ -50,8 +50,9 @@ func (this *DHTNode) Quit() {
 
 func (this *DHTNode) ForceQuit() {
 	this.server.Shutdown()
+	this.node.Clear()
 	log.Tracef("Force quit at node %s.\n", this.node.address)
-	time.Sleep(maintainPeriod * 4)
+	time.Sleep(maintainPeriod * 3)
 }
 
 func (this *DHTNode) Ping(addr string) bool {
@@ -63,11 +64,10 @@ func (this *DHTNode) Put(key string, value string) bool {
 		log.Errorf("%s not listening.\n", this.node.address)
 		return false
 	}
-	this.node.PutOnChord(key, value)
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		this.node.PutOnChord(key, value)
-	}()
+	if !this.node.PutOnChord(key, value) {
+		time.Sleep(maintainPeriod)
+		return this.node.PutOnChord(key, value)
+	}
 	return true
 }
 
@@ -81,7 +81,7 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		if ok {
 			return true, value
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(maintainPeriod)
 	}
 	log.Warningf("Value of %s not found.\n", key)
 	return false, ""
