@@ -81,11 +81,6 @@ func NaiveTest() {
 		network[i].Quit()
 	}
 
-	for i := 0 ; i < NodeCount / 2 ; i ++ {
-		network[i].Dump()
-		fmt.Println()
-	}
-
 	log.Traceln("Put & get test begins.")
 	/*SuccessCount, MistakeCount, FailureCount = 0, 0, 0
 	for i := DataCount / 2 - 1 ; i >= 0 ; i -- {
@@ -107,12 +102,6 @@ func NaiveTest() {
 		network[i + NodeCount / 2].Run()
 		network[i + NodeCount / 2].Join(localIP + ":" + strconv.Itoa(ports[i]))
 		network[i].Quit()
-		network[i + NodeCount / 2].Dump()
-	}
-
-	for i := 0 ; i < NodeCount / 2 ; i ++ {
-		network[i + NodeCount / 2].Dump()
-		fmt.Println()
 	}
 
 	log.Traceln("Put & get test begins.")
@@ -131,13 +120,18 @@ func NaiveTest() {
 		}
 	}
 	fmt.Printf("Success: %d, Mistake: %d, Failure: %d.\n\n", SuccessCount, MistakeCount, FailureCount)
+
+	for i := 0 ; i < NodeCount / 2; i ++ {
+		network[i + NodeCount / 2].Dump()
+	}
+
 	for i := 0 ; i < NodeCount / 2; i ++ {
 		network[i + NodeCount / 2].Dump()
 		network[i + NodeCount / 2].Quit()
 	}
 }
 
-func main() {
+func main_() {
 	/*file, err := os.OpenFile("DHT.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)

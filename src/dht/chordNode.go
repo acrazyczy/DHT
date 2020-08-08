@@ -106,16 +106,11 @@ func (this *ChordNode) Join(addr string) error {
 	log.Tracef("Get successor list of %s.\n", this.address)
 
 	this.dataLock.Lock()
-	err = CallFunc(client, "RPCWrapper.SplitIntoPredecessor", hashValue, &this.data)
+	err = CallFunc(client, "RPCWrapper.SplitIntoPredecessor", this.address, &this.data)
 	this.dataLock.Unlock()
 	log.Tracef("Split done: %s.\n", this.address)
 	if err != nil {
 		return err
-	}
-	log.Tracef("%s tries to notify %s.\n", this.address, this.successor[0])
-	err = CallFunc(client, "RPCWrapper.Notify", this.address, nil)
-	if err != nil {
-		log.Errorln("Join: ", err)
 	}
 
 	log.Tracef("Successfully join %s.\n", this.address)
@@ -130,7 +125,9 @@ func (this *ChordNode) GetSuccessor(_ int, reply *[successorLen] string) error {
 	return nil
 }
 
-func (this *ChordNode) SplitIntoPredecessor(hashValue *big.Int, reply *map[string] string) error {
+func (this *ChordNode) SplitIntoPredecessor(addr string, reply *map[string] string) error {
+	hashValue := hashString(addr)
+	this.predecessor = addr
 	this.dataLock.Lock()
 	for key, value := range this.data {
 		if !between(hashValue, hashString(key), hashString(this.address), true) {
@@ -295,12 +292,14 @@ func (this *ChordNode) Stabilize() {
 	log.Tracef("Stabilize at %s.\n", this.address)
 	defer log.Tracef("Stabilization at %s ends.\n", this.address)
 	suc := this.FirstValidSuccessor()
+	log.Tracef("first valid successor: %s.\n", suc)
 	client, err := GetClient(suc)
 	if client == nil {
 		return
 	}
 	var addr string
 	err_ := CallFunc(client, "RPCWrapper.GetPredecessor", 0, &addr)
+	log.Tracef("predecessor: %s.\n", addr)
 	if err_ != nil {
 		err_ = CallFunc(client, "RPCWrapper.GetPredecessor", 0, &addr)
 	}
@@ -309,7 +308,8 @@ func (this *ChordNode) Stabilize() {
 			client.Close()
 			client, err = GetClient(addr)
 			if err != nil {
-				return
+				client, err = GetClient(suc)
+				addr = ""
 			}
 		} else {
 			addr = ""
@@ -328,6 +328,9 @@ func (this *ChordNode) Stabilize() {
 	if addr != "" {
 		this.successor[0] = addr
 		log.Tracef("The successor of node %s has been changed to %s.\n", this.address, addr)
+	} else {
+		this.successor[0] = suc
+		log.Tracef("The successor of node %s has been changed to %s.\n", this.address, suc)
 	}
 	for i := 1 ; i < successorLen ; i ++ {
 		this.successor[i] = list[i - 1]
@@ -344,7 +347,7 @@ func (this *ChordNode) Stabilize() {
 }
 
 func (this *ChordNode) Notify(addr string, _ *int) error {
-	if this.predecessor == "" || addr != this.address && between(hashString(this.predecessor), hashString(addr), hashString(this.address), false) {
+	if this.predecessor == "" || between(hashString(this.predecessor), hashString(addr), hashString(this.address), true) {
 		log.Tracef("The predecessor of node %s has been changed from %s to %s.\n", this.address, this.predecessor, addr)
 		/*log.Traceln(this.predecessor, addr, this.address)
 		log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))*/

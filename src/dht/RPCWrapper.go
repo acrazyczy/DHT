@@ -18,8 +18,8 @@ func (this *RPCWrapper) SendBackup(backup map[string] string, _ *int) error {
 	return this.node.SendBackup(backup, nil)
 }
 
-func (this *RPCWrapper) SplitIntoPredecessor(hashValue *big.Int, reply *map[string] string) error {
-	return this.node.SplitIntoPredecessor(hashValue, reply)
+func (this *RPCWrapper) SplitIntoPredecessor(addr string, reply *map[string] string) error {
+	return this.node.SplitIntoPredecessor(addr, reply)
 }
 
 func (this *RPCWrapper) RemoveFromBackup(backup map[string] string, _ *int) error {

@@ -54,7 +54,7 @@ func CallFunc(client *rpc.Client, method string, args interface{}, reply interfa
 	select {
 	case call := <- client.Go(method, args, reply, make(chan *rpc.Call, 1)).Done :
 		return call.Error
-	case <- time.After(time.Second) :
+	case <- time.After(2 * maintainPeriod) :
 		return TimeOutError
 	}
 }
@@ -83,7 +83,7 @@ func GetClient(address string) (client *rpc.Client, err error) {
 			} else {
 				return client, nil
 			}
-		case <- time.After(500 * time.Millisecond):
+		case <- time.After(2 * maintainPeriod):
 			log.Errorln("GetClient: ", TimeOutError)
 		}
 	}
@@ -122,10 +122,10 @@ func CheckValidRPC(address string) bool {
 			} else {
 				log.Errorln(err)
 			}
-		case <- time.After(100 * time.Millisecond):
+		case <- time.After(maintainPeriod):
 			log.Errorln(TimeOutError)
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(halfMaintainPeriod)
 	}
 	log.Warningf("Connection trial to %s fail.\n", address)
 	return false
