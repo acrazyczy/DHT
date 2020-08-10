@@ -106,13 +106,13 @@ func CheckValidRPC(address string) bool {
 	defer close(dialError)
 	for trial := 0 ; trial < 2 ; trial ++ {
 		go func() {
-			var err error
-			_, err = rpc.Dial("tcp", address)
+			client, err := rpc.Dial("tcp", address)
 			defer func() {
 				if r := recover(); r != nil {
 					log.Errorln(r)
 				}
 			}()
+			client.Close()
 			dialError <- err
 		}()
 		select {
