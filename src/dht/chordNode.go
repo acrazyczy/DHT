@@ -128,7 +128,7 @@ func (this *ChordNode) Join(addr string) error {
 
 	log.Tracef("Successfully join %s.\n", this.address)
 
-	return err
+	return nil
 }
 
 func (this *ChordNode) GetSuccessor(_ int, reply *[successorLen] string) error {
@@ -171,6 +171,9 @@ func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error
 		return nil
 	}
 	jump := this.ClosestPrecedingNode(hashValue)
+	if jump == nil {
+		log.Fatalln("FindSuccessor: null pointer.")
+	}
 	return CallFunc(jump, "RPCWrapper.FindSuccessor", hashValue, succaddr)
 }
 

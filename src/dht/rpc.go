@@ -54,7 +54,7 @@ func CallFunc(client *rpc.Client, method string, args interface{}, reply interfa
 	select {
 	case call := <- client.Go(method, args, reply, make(chan *rpc.Call, 1)).Done :
 		return call.Error
-	case <- time.After(maintainPeriod) :
+	case <- time.After(maintainPeriod * 3) :
 		return TimeOutError
 	}
 }
@@ -109,10 +109,12 @@ func CheckValidRPC(address string) bool {
 			client, err := rpc.Dial("tcp", address)
 			defer func() {
 				if r := recover(); r != nil {
-					log.Errorln(r)
+					log.Errorln("CheckValidRPC: ", r)
 				}
 			}()
-			client.Close()
+			if client != nil {
+				client.Close()
+			}
 			dialError <- err
 		}()
 		select {

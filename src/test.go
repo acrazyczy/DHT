@@ -49,10 +49,6 @@ func NaiveTest() {
 	}
 	fmt.Println("Put test ends.")
 
-	/*for i := 0 ; i < NodeCount ; i ++ {
-		network[i].Dump()
-	}*/
-
 	fmt.Println("Get test begins.")
 	var (
 		SuccessCount int = 0
