@@ -64,11 +64,15 @@ func (this *DHTNode) Put(key string, value string) bool {
 		log.Errorf("%s not listening.\n", this.node.address)
 		return false
 	}
+	var result bool
 	if !this.node.PutOnChord(key, value) {
 		time.Sleep(maintainPeriod)
-		return this.node.PutOnChord(key, value)
+		result = this.node.PutOnChord(key, value)
+	} else {
+		result = true
 	}
-	return true
+	time.Sleep(maintainPeriod)
+	return result
 }
 
 func (this *DHTNode) Get(key string) (bool, string) {
@@ -76,7 +80,7 @@ func (this *DHTNode) Get(key string) (bool, string) {
 		log.Errorf("%s not listening.\n", this.node.address)
 		return false, ""
 	}
-	for trial := 0 ; trial < 5 ; trial ++ {
+	for trial := 0 ; trial < 3 ; trial ++ {
 		ok, value := this.node.GetOnChord(key)
 		if ok {
 			return true, value
@@ -93,6 +97,7 @@ func (this *DHTNode) Delete(key string) bool {
 		return false
 	}
 	ok, _ := this.node.DeleteOnChord(key)
+	time.Sleep(maintainPeriod)
 	return ok
 }
 

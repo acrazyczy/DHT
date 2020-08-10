@@ -1,6 +1,7 @@
 package dht
 
 import (
+	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"math/big"
@@ -77,6 +78,10 @@ func (this *ChordNode) Join(addr string) error {
 	var err error
 	var suc string
 
+	if client == nil {
+		log.Fatalln("Join 1: null pointer.")
+	}
+
 	err = CallFunc(client, "RPCWrapper.FindSuccessor", hashValue, &suc)
 	if err != nil {
 		client.Close()
@@ -95,8 +100,12 @@ func (this *ChordNode) Join(addr string) error {
 
 	var list [successorLen] string
 	log.Tracef("Try to get successor list of %s from %s.\n", this.address, this.successor[0])
+	if client == nil {
+		log.Fatalln("Join 2: null pointer.")
+	}
 	err = CallFunc(client, "RPCWrapper.GetSuccessor", 0, &list)
 	if err != nil {
+		this.successor[0] = this.address
 		return err
 	}
 	for i := 1 ; i < successorLen ; i ++ {
@@ -105,11 +114,15 @@ func (this *ChordNode) Join(addr string) error {
 
 	log.Tracef("Get successor list of %s.\n", this.address)
 
+	if client == nil {
+		log.Fatalln("Join 3: null pointer.")
+	}
 	this.dataLock.Lock()
 	err = CallFunc(client, "RPCWrapper.SplitIntoPredecessor", this.address, &this.data)
 	this.dataLock.Unlock()
 	log.Tracef("Split done: %s.\n", this.address)
 	if err != nil {
+		this.successor[0] = this.address
 		return err
 	}
 
@@ -153,7 +166,6 @@ func (this *ChordNode) RemoveFromBackup(backup map[string] string, _ *int) error
 }
 
 func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error {
-	log.Tracef("FindSuccessor at %s.\n", this.address)
 	if suc := this.FirstValidSuccessor() ; between(hashString(this.address), hashValue, hashString(suc), true) {
 		*succaddr = suc
 		return nil
@@ -201,24 +213,27 @@ type KVPair struct {
 }
 
 func (this *ChordNode) PutOnChord(key string, value string) bool {
+	log.Tracef("Try to put key %s on chord.\n", key)
 	var addr string
 	err := this.FindSuccessor(hashString(key), &addr)
 	if err != nil {
 		return false
 	}
 	var ok bool
+	log.Tracef("Get put address : %s.\n", addr)
 	err = CallFuncByAddress(addr, "RPCWrapper.Put", KVPair{Key: key, Value: value}, &ok)
 	return err == nil && ok
 }
 
 func (this *ChordNode) Put(kv KVPair, ok *bool) error {
+	err := CallFuncByAddress(this.successor[0], "RPCWrapper.PutOnBackup", kv, nil)
+	if err != nil {
+		*ok = false
+		return err
+	}
 	this.dataLock.Lock()
 	this.data[kv.Key], *ok = kv.Value, true
 	this.dataLock.Unlock()
-	err := CallFuncByAddress(this.successor[0], "RPCWrapper.PutOnBackup", kv, nil)
-	if err != nil {
-		log.Errorln("Put: ", err)
-	}
 	return nil
 }
 
@@ -231,9 +246,7 @@ func (this *ChordNode) PutOnBackup(kv KVPair, _ *int) error {
 
 func (this *ChordNode) GetOnChord(key string) (bool, string) {
 	var addr string
-	log.Tracef("Start to find the corresponding position of key %s.\n", key)
 	err := this.FindSuccessor(hashString(key), &addr)
-	log.Tracef("Try to get key %s on chord node %s.\n", key, addr)
 	if err != nil {
 		return false, ""
 	}
@@ -254,37 +267,45 @@ func (this *ChordNode) Get(key string, value *string) error {
 }
 
 func (this *ChordNode) DeleteOnChord(key string) (bool, string) {
+	log.Tracef("Try to delete key %s on chord.\n", key)
 	var addr string
 	err := this.FindSuccessor(hashString(key), &addr)
 	if err != nil {
 		return false, ""
 	}
 	var value string
+	log.Tracef("Get delete address : %s.'n", addr)
 	err = CallFuncByAddress(addr, "RPCWrapper.Delete", key, &value)
-	return err == nil && value != "", value
+	return err == nil, value
 }
 
+var DeleteNonExistenceError error = errors.New("delete an element that doesn't exist")
+
 func (this *ChordNode) Delete(key string, value *string) error {
+	err := CallFuncByAddress(this.successor[0], "RPCWrapper.DeleteOnBackup", key, nil)
+	if err != nil {
+		return err
+	}
 	this.dataLock.Lock()
 	var ok bool
 	*value, ok = this.data[key]
 	if !ok {
-		*value = ""
+		return DeleteNonExistenceError
 	} else {
 		delete(this.data, key)
 	}
 	this.dataLock.Unlock()
-	err := CallFuncByAddress(this.successor[0], "RPCWrapper.DeleteOnBackup", key, nil)
-	if err != nil {
-		log.Errorln("Delete: ", err)
-	}
 	return nil
 }
 
 func (this *ChordNode) DeleteOnBackup(key string, _ *int) error {
 	this.backupLock.Lock()
-	delete(this.backup, key)
-	this.backupLock.Unlock()
+	defer this.backupLock.Unlock()
+	if _, ok := this.backup[key] ; ok {
+		delete(this.backup, key)
+	} else {
+		return DeleteNonExistenceError
+	}
 	return nil
 }
 
@@ -294,10 +315,13 @@ func (this *ChordNode) Stabilize() {
 	suc := this.FirstValidSuccessor()
 	log.Tracef("first valid successor: %s.\n", suc)
 	client, err := GetClient(suc)
-	if client == nil {
+	if err != nil {
 		return
 	}
 	var addr string
+	if client == nil {
+		log.Fatalln("Stabilize 1: null pointer.")
+	}
 	err_ := CallFunc(client, "RPCWrapper.GetPredecessor", 0, &addr)
 	log.Tracef("predecessor: %s.\n", addr)
 	if err_ != nil {
@@ -310,12 +334,18 @@ func (this *ChordNode) Stabilize() {
 			if err != nil {
 				client, err = GetClient(suc)
 				addr = ""
+				if err != nil {
+					return
+				}
 			}
 		} else {
 			addr = ""
 		}
 	} else {
 		log.Errorln("Stabilize1: ", err_)
+	}
+	if client == nil {
+		log.Fatalln("Stabilize 2: null pointer.")
 	}
 	var list [successorLen] string
 	err = CallFunc(client, "RPCWrapper.GetSuccessor", 0, &list)
@@ -335,12 +365,12 @@ func (this *ChordNode) Stabilize() {
 	for i := 1 ; i < successorLen ; i ++ {
 		this.successor[i] = list[i - 1]
 	}
-	if client != nil {
-		log.Tracef("Try to notify %s.\n", this.successor[0])
-		err_ = CallFunc(client, "RPCWrapper.Notify", this.address, nil)
-		if err_ != nil {
-			log.Errorln("Stabilize3: ", err_)
-		}
+	if client == nil {
+		log.Fatalln("Stabilize 3: null pointer.")
+	}
+	err_ = CallFunc(client, "RPCWrapper.Notify", this.address, nil)
+	if err_ != nil {
+		log.Errorln("Stabilize3: ", err_)
 	}
 	this.succLock.Unlock()
 	client.Close()
@@ -349,19 +379,11 @@ func (this *ChordNode) Stabilize() {
 func (this *ChordNode) Notify(addr string, _ *int) error {
 	if this.predecessor == "" || between(hashString(this.predecessor), hashString(addr), hashString(this.address), true) {
 		log.Tracef("The predecessor of node %s has been changed from %s to %s.\n", this.address, this.predecessor, addr)
-		/*log.Traceln(this.predecessor, addr, this.address)
-		log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))*/
 		this.predecessor = addr
 		err := CallFuncByAddress(addr, "RPCWrapper.ReceiveData", 0, &this.backup)
 		if err != nil {
 			log.Errorln("Notify: ", err)
 		}
-	} else {
-		log.Tracef("Notify failed.\n")
-		/*if this.predecessor != " " {
-			log.Traceln(this.predecessor, addr, this.address)
-			log.Traceln(*hashString(this.predecessor), *hashString(addr), *hashString(this.address))
-		}*/
 	}
 	return nil
 }
@@ -394,9 +416,12 @@ func (this *ChordNode) EnableBackup() {
 	}
 	this.dataLock.Unlock()
 	client, err := GetClient(this.FirstValidSuccessor())
-	defer client.Close()
 	if err == nil {
+		if client == nil {
+			log.Fatalln("EnableBackup: null pointer.")
+		}
 		err = CallFunc(client, "RPCWrapper.SendBackup", this.backup, nil)
+		client.Close()
 	}
 	if err != nil {
 		log.Errorln("EnableBackup: ", err)
