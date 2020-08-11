@@ -380,7 +380,7 @@ func (this *ChordNode) Stabilize() {
 }
 
 func (this *ChordNode) Notify(addr string, _ *int) error {
-	if this.predecessor == "" || between(hashString(this.predecessor), hashString(addr), hashString(this.address), true) {
+	if this.predecessor == "" || this.predecessor != addr && between(hashString(this.predecessor), hashString(addr), hashString(this.address), true) {
 		log.Tracef("The predecessor of node %s has been changed from %s to %s.\n", this.address, this.predecessor, addr)
 		this.predecessor = addr
 		err := CallFuncByAddress(addr, "RPCWrapper.ReceiveData", 0, &this.backup)
