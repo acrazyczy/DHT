@@ -71,7 +71,7 @@ func (this *DHTNode) Put(key string, value string) bool {
 	} else {
 		result = true
 	}
-	time.Sleep(maintainPeriod)
+	//time.Sleep(maintainPeriod)
 	return result
 }
 
@@ -97,7 +97,7 @@ func (this *DHTNode) Delete(key string) bool {
 		return false
 	}
 	ok, _ := this.node.DeleteOnChord(key)
-	time.Sleep(maintainPeriod)
+	//time.Sleep(maintainPeriod)
 	return ok
 }
 

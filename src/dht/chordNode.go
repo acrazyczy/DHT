@@ -13,8 +13,8 @@ import (
 
 const fingerLen int = 160
 const successorLen int = 5
-const maintainPeriod time.Duration = 300 * time.Millisecond
-const halfMaintainPeriod time.Duration = 150 * time.Millisecond
+const maintainPeriod time.Duration = 250 * time.Millisecond
+const halfMaintainPeriod time.Duration = 125 * time.Millisecond
 
 type ChordNode struct {
 	address string
@@ -173,6 +173,8 @@ func (this *ChordNode) FindSuccessor(hashValue *big.Int, succaddr *string) error
 	jump := this.ClosestPrecedingNode(hashValue)
 	if jump == nil {
 		log.Fatalln("FindSuccessor: null pointer.")
+	} else {
+		defer jump.Close()
 	}
 	return CallFunc(jump, "RPCWrapper.FindSuccessor", hashValue, succaddr)
 }
