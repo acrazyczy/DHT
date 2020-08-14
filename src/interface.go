@@ -1,5 +1,7 @@
 package main
 
+import "os"
+
 type dhtNode interface {
 	/* "Run" is called after calling "NewNode". */
 	Run()
@@ -33,5 +35,5 @@ type dhtNode interface {
 	/* Return "true" if remove successfully, "false" otherwise. */
 
 	// you can delete this function if you don't want to write.
-	Dump()
+	Dump(file * os.File)
 }

@@ -1,35 +1,38 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	easy_formatter "github.com/t-tomalak/logrus-easy-formatter"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
 )
 
 var (
-	help     bool
-	testName string
+	currentPort int
+	isRunning bool
+	exitCode bool
+	runningList map[int] dhtNode = make(map[int] dhtNode)
+	backupList map[int] string = make(map[int] string)
+	currentIndex int
 )
 
-func init() {
-	flag.BoolVar(&help, "help", false, "help")
-	flag.StringVar(&testName, "test", "", "which test(s) do you want to run: basic/advance/all")
-
-	flag.Usage = usage
-	//flag.Parse()
-
-	testName = "all"
-
-	if help || (testName != "basic" && testName != "advance" && testName != "all") {
-		flag.Usage()
-		os.Exit(0)
-	}
-
-	rand.Seed(time.Now().UnixNano())
+func helpInfo() {
+	_, _ = cyan.Println("\nWelcome to chord protocol DHT guide.")
+	_, _ = cyan.Println("Run: launch your node.")
+	_, _ = cyan.Println("Join: join your node into a network.")
+	_, _ = cyan.Println("Create: create a network based on your node.")
+	_, _ = cyan.Println("Put: put a {key, value} pair on the network.")
+	_, _ = cyan.Println("Get: get the value of key in the network.")
+	_, _ = cyan.Println("Delete: remove a key from the network.")
+	_, _ = cyan.Println("Backup: save your data to disk.")
+	_, _ = cyan.Println("Recover: choose a backup to put on the network.")
+	_, _ = cyan.Println("SetPort: change your port number.")
+	_, _ = cyan.Println("Help: display help information.")
+	_, _ = cyan.Println("Info: display current network information.")
+	_, _ = cyan.Println("Quit: quit your node.")
+	_, _ = cyan.Println("Exit: quit this application.\n")
 }
 
 func main() {
@@ -44,88 +47,176 @@ func main() {
 	}
 	defer file.Close()
 	log.SetOutput(file)
-	_, _ = yellow.Println("Welcome to DHT-2020 Test Program!\n")
-
-	var basicFailRate float64
-	var forceQuitFailRate float64
-	var QASFailRate float64
-
-	switch testName {
-	case "all":
-		fallthrough
-	case "basic":
-		_, _ = yellow.Println("Basic Test Begins:")
-		basicPanicked, basicFailedCnt, basicTotalCnt := basicTest()
-		if basicPanicked {
-			_, _ = red.Printf("Basic Test Panicked.")
-			os.Exit(0)
+	_, _ = cyan.Println("Welcome to chord protocol DHT!\n")
+	_, _ = cyan.Printf("Your current IP address is %s.\n", GetLocalAddress())
+	currentPort = -1
+	for currentPort == -1 {
+		_, _ = yellow.Println("Please input your port number:")
+		if _, err := fmt.Scanf("%d", &currentPort) ; err != nil {
+			currentPort = -1
+			_, _ = red.Println("Please input a number.")
 		}
-
-		basicFailRate = float64(basicFailedCnt) / float64(basicTotalCnt)
-		if basicFailRate > basicTestMaxFailRate {
-			_, _ = red.Printf("Basic test failed with fail rate %.4f\n", basicFailRate)
-		} else {
-			_, _ = green.Printf("Basic test passed with fail rate %.4f\n", basicFailRate)
-		}
-
-		if testName == "basic" {
+	}
+	_, _ = green.Printf("Successfully set current port number to %d.\n", currentPort)
+	helpInfo()
+	for !exitCode {
+		_, _ = yellow.Println("Please input your operation code.")
+		var operationCode string
+		_, _ = fmt.Scanf("%s", &operationCode)
+		switch operationCode {
+		case "Run":
+			if isRunning {
+				red.Println("Error: this node is already running.")
+			} else {
+				runningList[currentPort], isRunning = NewNode(currentPort), true
+				runningList[currentPort].Run()
+				green.Println("Successfully run node.")
+			}
+		case "Join":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				var joinAddress string
+				yellow.Println("Please input the address of the join node to join.")
+				yellow.Println("For example, 192.168.0.104:9353.")
+				_, _ = fmt.Scanf("%s", &joinAddress)
+				if !runningList[currentPort].Join(joinAddress) {
+					_, _ = red.Println("Error: failed to join.")
+				} else {
+					_, _ = green.Println("Successfully join your node into the network.")
+				}
+			}
+		case "Create":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				runningList[currentPort].Create()
+				_, _ = green.Println("Successfully creat a network from your node.")
+			}
+		case "Put":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				var key, value string
+				_, _ = yellow.Println("Please input the key to put:")
+				fmt.Scanf("%s", &key)
+				_, _ = yellow.Println("Please input the value to put:")
+				fmt.Scanf("%s", &value)
+				if !runningList[currentPort].Put(key, value) {
+					_, _ = red.Println("Error: failed to put")
+				} else {
+					_, _ = green.Printf("Successfully put {key: %s, value: %s} into the network.\n", key, value)
+				}
+			}
+		case "Get":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				var key string
+				_, _ = yellow.Println("Please input the key to get:")
+				fmt.Scanf("%s", &key)
+				if ok, value := runningList[currentPort].Get(key) ; ok {
+					_, _ = green.Printf("The value of key %s is: %s.\n", key, value)
+				} else {
+					_, _ = red.Printf("Error: failed to get the value of key %s.\n", key)
+				}
+			}
+		case "Delete":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				var key string
+				_, _ = yellow.Println("Please input the key to delete:")
+				fmt.Scanf("%s", &key)
+				if ok := runningList[currentPort].Delete(key) ; ok {
+					_, _ = green.Printf("Successfully delete key %s.\n", key)
+				} else {
+					_, _ = red.Printf("Error: failed to delete key %s.\n", key)
+				}
+			}
+		case "Backup":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				if _, err := os.Stat("backup"); os.IsNotExist(err) {
+					os.Mkdir("backup", os.ModePerm)
+				}
+				filename := strings.ReplaceAll(time.Now().Format(time.Stamp), " ", "-")
+				file, err := os.OpenFile("backup/"+ filename +".dat", os.O_WRONLY|os.O_CREATE, 0644)
+				if err != nil {
+					_, _ = red.Println("Error: failed to backup.")
+				} else {
+					runningList[currentPort].Dump(file)
+					file.Close()
+					currentIndex ++
+					backupList[currentIndex] = filename
+					_, _ = green.Println("Successfully save your data to disk.")
+				}
+			}
+		case "Recover":
+			if !isRunning {
+				red.Println("Error: this node isn't running.")
+			} else {
+				_, _ = cyan.Println("Local backup list:")
+				for key, value := range backupList {
+					_, _ = cyan.Printf("%d: %s\n", key, value)
+				}
+				_, _ = yellow.Println("Please input the number of the backup to recover.")
+				var id int
+				_, err = fmt.Scanf("%d", &id)
+				if err != nil {
+					_, _ = red.Println("Error: not a valid number.")
+				} else if filename, ok := backupList[id] ; !ok {
+					_, _ = red.Println("Error: not a valid number.")
+				} else {
+					file, err := os.Open("backup/"+ filename +".dat")
+					if err != nil {
+						_, _ = red.Println("Error: failed to open backup file.")
+					} else {
+						for {
+							var key, value string
+							_, err = fmt.Fscanf(file, "%s %s", &key, &value)
+							if err != nil {
+								break
+							}
+							runningList[currentPort].Put(key, value)
+						}
+						_ = file.Close()
+						_ = os.Remove("backup/" + filename + ".dat")
+						delete(backupList, id)
+						_, _ = green.Printf("Successfully recover %s to the network.\n", "backup/"+ filename +".dat")
+					}
+				}
+			}
+		case "SetPort":
+			_, _ = yellow.Println("Please input your port number:")
+			var newPort int = -1
+			if _, err := fmt.Scanf("%d", &newPort) ; err != nil {
+				_, _ = red.Println("Error: not a valid port number.")
+			} else {
+				currentPort = newPort
+				_, isRunning = runningList[currentPort]
+				_, _ = green.Printf("Successfully set current port number to %d.\n", currentPort)
+			}
+		case "Help": helpInfo()
+		case "Info":
+			_, _ = cyan.Printf("Your current IP address is %s.\n", GetLocalAddress())
+			_, _ = cyan.Printf("Current port %d.\n", currentPort)
+			_, _ = cyan.Println("All online port numbers on your computer:")
+			for key, _ := range runningList {
+				_, _ = cyan.Printf("%d ", key)
+			}
+			_, _ = cyan.Println()
+		case "Quit":
+			runningList[currentPort].Quit()
+			isRunning = false
+			delete(runningList, currentPort)
+			_, _ = green.Println("Successfully quit.")
+		case "Exit":
+			_, _ = cyan.Println("Bye!")
+			exitCode = true
 			break
+		default: _, _ = red.Println("Please input a valid operation code.")
 		}
-		time.Sleep(afterTestSleepTime)
-		fallthrough
-	case "advance":
-		_, _ = yellow.Println("Advance Test Begins:")
-
-		/* ------ Force Quit Test Begins ------ */
-		forceQuitPanicked, forceQuitFailedCnt, forceQuitTotalCnt := forceQuitTest()
-		if forceQuitPanicked {
-			_, _ = red.Printf("Force Quit Test Panicked.")
-			os.Exit(0)
-		}
-
-		forceQuitFailRate = float64(forceQuitFailedCnt) / float64(forceQuitTotalCnt)
-		if forceQuitFailRate > forceQuitMaxFailRate {
-			_, _ = red.Printf("Force quit test failed with fail rate %.4f\n", forceQuitFailRate)
-		} else {
-			_, _ = green.Printf("Force quit test passed with fail rate %.4f\n", forceQuitFailRate)
-		}
-		time.Sleep(afterTestSleepTime)
-		/* ------ Force Quit Test Ends ------ */
-
-		/* ------ Quit & Stabilize Test Begins ------ */
-		QASPanicked, QASFailedCnt, QASTotalCnt := quitAndStabilizeTest()
-		if QASPanicked {
-			_, _ = red.Printf("Quit & Stabilize Test Panicked.")
-			os.Exit(0)
-		}
-
-		QASFailRate = float64(QASFailedCnt) / float64(QASTotalCnt)
-		if QASFailRate > QASMaxFailRate {
-			_, _ = red.Printf("Quit & Stabilize test failed with fail rate %.4f\n", QASFailRate)
-		} else {
-			_, _ = green.Printf("Quit & Stabilize test passed with fail rate %.4f\n", QASFailRate)
-		}
-		/* ------ Quit & Stabilize Test Ends ------ */
 	}
-
-	_, _ = cyan.Println("\nFinal print:")
-	if basicFailRate > basicTestMaxFailRate {
-		_, _ = red.Printf("Basic test failed with fail rate %.4f\n", basicFailRate)
-	} else {
-		_, _ = green.Printf("Basic test passed with fail rate %.4f\n", basicFailRate)
-	}
-	if forceQuitFailRate > forceQuitMaxFailRate {
-		_, _ = red.Printf("Force quit test failed with fail rate %.4f\n", forceQuitFailRate)
-	} else {
-		_, _ = green.Printf("Force quit test passed with fail rate %.4f\n", forceQuitFailRate)
-	}
-	if QASFailRate > QASMaxFailRate {
-		_, _ = red.Printf("Quit & Stabilize test failed with fail rate %.4f\n", QASFailRate)
-	} else {
-		_, _ = green.Printf("Quit & Stabilize test passed with fail rate %.4f\n", QASFailRate)
-	}
-}
-
-func usage() {
-	flag.PrintDefaults()
 }

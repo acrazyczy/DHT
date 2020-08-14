@@ -2,6 +2,7 @@ package dht
 
 import (
 	log "github.com/sirupsen/logrus"
+	"os"
 	"time"
 )
 
@@ -101,10 +102,10 @@ func (this *DHTNode) Delete(key string) bool {
 	return ok
 }
 
-func (this *DHTNode) Dump() {
+func (this *DHTNode) Dump(file *os.File) {
 	if this.node.listening == false {
 		log.Errorf("%s not listening.\n", this.node.address)
 		return
 	}
-	this.node.Dump()
+	this.node.Dump(file)
 }

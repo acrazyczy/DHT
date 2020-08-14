@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math/big"
 	"net/rpc"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -118,7 +119,9 @@ func (this *ChordNode) Join(addr string) error {
 		log.Fatalln("Join 3: null pointer.")
 	}
 	this.dataLock.Lock()
+	log.Traceln("{")
 	err = CallFunc(client, "RPCWrapper.SplitIntoPredecessor", this.address, &this.data)
+	log.Traceln("}")
 	this.dataLock.Unlock()
 	log.Tracef("Split done: %s.\n", this.address)
 	if err != nil {
@@ -149,10 +152,10 @@ func (this *ChordNode) SplitIntoPredecessor(addr string, reply *map[string] stri
 		}
 	}
 	this.dataLock.Unlock()
+	err := CallFuncByAddress(this.successor[0], "RPCWrapper.RemoveFromBackup", *reply, nil)
 	this.backupLock.Lock()
 	this.backup = *reply
 	this.backupLock.Unlock()
-	err := CallFuncByAddress(this.successor[0], "RPCWrapper.RemoveFromBackup", *reply, nil)
 	return err
 }
 
@@ -452,18 +455,10 @@ func (this *ChordNode) Clear() {
 	this.backupLock.Unlock()
 }
 
-func (this *ChordNode) Dump() {
-	fmt.Printf("Dumping node at %s.\n", this.address)
-	fmt.Printf("Predecessor: %s\n", this.predecessor)
-	fmt.Printf("Successor: %s\n", this.successor)
-	fmt.Print("Data: {")
+func (this *ChordNode) Dump(file *os.File) {
+	this.dataLock.Lock()
 	for key, value := range this.data {
-		fmt.Printf("{%s: %s}, ", key, value)
+		fmt.Fprintf(file, "%s %s\n", key, value)
 	}
-	fmt.Printf("}\n")
-	fmt.Print("Backup: {")
-	for key, value := range this.backup {
-		fmt.Printf("{%s: %s}, ", key, value)
-	}
-	fmt.Printf("}\n")
+	this.dataLock.Unlock()
 }
